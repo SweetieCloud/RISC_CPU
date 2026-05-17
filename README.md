@@ -1,4 +1,4 @@
-# RISC_CPU
+## RISC_CPU
 
 Hiện thực một bộ vi xử lý RISC (Reduced Instruction Set Computer) cơ bản kiến trúc 32-bit bằng ngôn ngữ đặc tả phần cứng Verilog HDL.
 

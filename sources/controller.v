@@ -47,6 +47,7 @@ module controller (
             current_state <= next_state;
         end
     end 
+    
     always @(*) begin
         if (rst) begin
             next_state = INST_ADDR;

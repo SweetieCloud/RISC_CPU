@@ -15,7 +15,7 @@ module controller (
     output reg wr,
     output reg data_e
 );
-
+    // FSM
     localparam INST_ADDR  = 3'd0;
     localparam INST_FETCH = 3'd1;
     localparam INST_LOAD  = 3'd2;
@@ -25,7 +25,7 @@ module controller (
     localparam ALU_OP     = 3'd6;
     localparam STORE      = 3'd7;
 
-   
+    // Opcodes
     localparam HLT = 3'b000;
     localparam SKZ = 3'b001;
     localparam ADD = 3'b010;
@@ -36,41 +36,59 @@ module controller (
     localparam JMP = 3'b111;
 
     reg [2:0] current_state, next_state;
+    
     wire is_alu_op;
     assign is_alu_op = (opcode == ADD || opcode == AND || opcode == XOR || opcode == LDA);
+ 
     always @(posedge clk) begin
         if (rst) begin
-            current_state <= INST_ADDR; 
+            current_state <= INST_ADDR;
         end else begin
             current_state <= next_state;
         end
-    end
-
+    end 
     always @(*) begin
-        if (halt) begin
-            next_state = current_state; 
+        if (rst) begin
+            next_state = INST_ADDR;
         end else begin
-            next_state = current_state + 1'b1;
+            case (current_state)
+                INST_ADDR:  next_state = INST_FETCH;
+                INST_FETCH: next_state = INST_LOAD;
+                INST_LOAD:  next_state = IDLE;
+                IDLE:       next_state = OP_ADDR;
+                OP_ADDR: begin
+                    if (opcode == HLT) 
+                        next_state = OP_ADDR;  
+                    else 
+                        next_state = OP_FETCH;
+                end
+                OP_FETCH:   next_state = ALU_OP;
+                ALU_OP:     next_state = STORE;
+                STORE:      next_state = INST_ADDR;  
+                default:    next_state = INST_ADDR;
+            endcase
         end
-    end
-
-    always @(*) begin
-        sel = 1'b0; rd = 1'b0; ld_ir = 1'b0; halt = 1'b0;
-        inc_pc = 1'b0; ld_ac = 1'b0; ld_pc = 1'b0; wr = 1'b0; data_e = 1'b0;
+    end 
+    always @(*) begin 
+        sel    = 1'b0; rd     = 1'b0; ld_ir  = 1'b0; halt   = 1'b0;
+        inc_pc = 1'b0; ld_ac  = 1'b0; ld_pc  = 1'b0; wr     = 1'b0; data_e = 1'b0;
 
         case (current_state)
             INST_ADDR: begin
                 sel = 1'b1;
             end
+            
             INST_FETCH: begin
                 sel = 1'b1;
                 rd  = 1'b1;
             end
+            
             INST_LOAD: begin
                 sel   = 1'b1;
                 rd    = 1'b1;
                 ld_ir = 1'b1;
             end
+            
             IDLE: begin
                 sel   = 1'b1;
                 rd    = 1'b1;
@@ -78,29 +96,43 @@ module controller (
             end
             
             OP_ADDR: begin
-                if (opcode == HLT) halt = 1'b1;
-                else inc_pc = 1'b1;
+                sel = 1'b0;
+                if (opcode == HLT) begin
+                    halt = 1'b1;
+                end else begin
+                    inc_pc = 1'b1;  
+                end
             end
             
             OP_FETCH: begin
-                if (is_alu_op) rd = 1'b1;
+                sel = 1'b0;
+                if (is_alu_op) begin
+                    rd = 1'b1;  
+                end
             end
+            
             ALU_OP: begin
-                if (is_alu_op) rd = 1'b1;
-                if (opcode == SKZ && is_zero) inc_pc = 1'b1; 
+                sel = 1'b0;
+                if (is_alu_op)  rd = 1'b1;
                 if (opcode == JMP) ld_pc = 1'b1;
+                if (opcode == SKZ && is_zero) inc_pc = 1'b1; 
             end
+            
             STORE: begin
+                sel = 1'b0;
                 if (is_alu_op) begin
                     rd    = 1'b1;
-                    ld_ac = 1'b1;
+                    ld_ac = 1'b1;  
                 end
-                if (opcode == JMP) ld_pc = 1'b1;
+                if (opcode == JMP) begin
+                    ld_pc = 1'b1;
+                end
                 if (opcode == STO) begin
                     wr     = 1'b1;
-                    data_e = 1'b1;
+                    data_e = 1'b1;  
                 end
             end
+            
             default: ;
         endcase
     end
